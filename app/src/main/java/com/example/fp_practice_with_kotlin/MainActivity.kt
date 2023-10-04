@@ -27,13 +27,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        solve()
     }
-}
-
-
-fun print(msg: String) {
-    Log.d("fp", msg)
 }
 
 @Composable
@@ -52,35 +46,3 @@ fun GreetingPreview() {
     }
 }
 
-
-
-
-
-
-
-
-
-object Example {
-    private fun abs(n: Int): Int
-        = if (n < 0) -n else n
-    fun formatAbs(x: Int): String = "The absolute value of %d is %d".format(x, abs(x))
-    private fun factorial(i: Int): Int {
-        tailrec fun go(n: Int, acc: Int): Int
-            = if (n <= 0) acc else go(n-1, n * acc)
-        return go(i, 1)
-    }
-    fun formatFactorial(x: Int): String {
-        val msg = "The factorial of %d is %d"
-        return msg.format(x, factorial(x))
-    }
-}
-fun solve() {
-    print(Example.formatAbs(-42))
-    print(Example.formatFactorial(7))
-}
-
-fun fib(i: Int): Int {
-    if (i > 0).not() {
-
-    }
-}
