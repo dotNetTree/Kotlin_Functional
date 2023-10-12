@@ -2,7 +2,6 @@ package com.example.fp_practice_with_kotlin.chapter3
 
 import org.junit.Assert
 import org.junit.Test
-import kotlin.math.max
 
 sealed class List<out ELEMENT> {
     companion object {
@@ -815,8 +814,8 @@ class Chapter3_28 {
         )
 
         Assert.assertEquals(
-            tree1.maximum { n1, n2 -> max(n1, n2) },
-            tree1.maximumF { n1, n2 -> max(n1, n2) }
+            tree1.maximum { n1, n2 -> maxOf(n1, n2) },
+            tree1.maximumF { n1, n2 -> maxOf(n1, n2) }
         )
 
         Assert.assertEquals(
