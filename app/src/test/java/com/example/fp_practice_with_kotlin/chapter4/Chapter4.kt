@@ -17,6 +17,7 @@ sealed class FOption<out VALUE: Any> {
         inline operator fun <VALUE: Any> invoke(): FOption<VALUE> = None
     }
 }
+val <VALUE: Any> FOption<VALUE>.isEmpty: Boolean get() = this is None
 
 // ===================================
 // ✏️[연습문제 4.1]

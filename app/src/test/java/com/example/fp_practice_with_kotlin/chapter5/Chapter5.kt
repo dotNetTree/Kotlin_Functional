@@ -4,6 +4,7 @@ import com.example.fp_practice_with_kotlin.chapter3.FList
 import com.example.fp_practice_with_kotlin.chapter4.FOption
 import com.example.fp_practice_with_kotlin.chapter4.FOption.*
 import com.example.fp_practice_with_kotlin.chapter4.getOfElse
+import com.example.fp_practice_with_kotlin.chapter4.isEmpty
 import com.example.fp_practice_with_kotlin.chapter4.map
 import com.example.fp_practice_with_kotlin.chapter5.FStream.*
 import com.example.fp_practice_with_kotlin.chapter5.FStream.Cons
@@ -118,7 +119,9 @@ fun fibs(): FStream<Int> {
 // ✏️[연습문제 5.11]
 fun <ITEM: Any, SEED: Any> unfold(seed: SEED, block: (SEED) -> FOption<Pair<ITEM, SEED>>): FStream<ITEM>
     = block(seed)
-        .map { pair -> FStream({ pair.first }, { unfold(pair.second, block) }) }
+        .map { pair -> FStream({ pair.first }, {
+            unfold(pair.second, block)
+        }) }
         .getOfElse { Empty }
 // ✏️[연습문제 5.12]
 fun fibs2(): FStream<Int> = unfold(Pair(0, 1), { FOption(it.first to (it.second to it.first + it.second)) })
@@ -143,12 +146,65 @@ fun <ITEM: Any> FStream<ITEM>.takeWhile3(block: (ITEM) -> Boolean): FStream<ITEM
     = unfold(this) {
         if (it is Cons && block(it.head())) FOption(it.head() to it.tail().takeWhile3(block)) else FOption()
     }
+fun <ITEM: Any, OTHER: Any, TO: Any> FStream<ITEM>.zipWith(that: FStream<OTHER>, block: (ITEM, OTHER) -> TO): FStream<TO>
+    = unfold(this to that) { (ths: FStream<ITEM>, tht: FStream<OTHER>) ->
+        if (ths is Cons && tht is Cons)
+            FOption(block(ths.head(), tht.head()) to (ths.tail() to tht.tail()))
+        else
+            FOption()
+    }
+fun <ITEM: Any, OTHER: Any> FStream<ITEM>.zipAll(that: FStream<OTHER>): FStream<Pair<FOption<ITEM>, FOption<OTHER>>>
+    = unfold(this to that) { (ths: FStream<ITEM>, tht: FStream<OTHER>) ->
+        when (ths) {
+            is Cons -> when (tht) {
+                is Cons -> FOption(
+                    Pair(
+                        FOption(ths.head()) to FOption(tht.head()),
+                        ths.tail() to tht.tail()
+                    )
+                )
+                is Empty -> FOption(
+                    Pair(
+                        FOption(ths.head()) to FOption(),
+                        ths.tail() to FStream()
+                    )
+                )
+            }
+            is Empty -> when (tht) {
+                is Cons -> FOption(
+                    Pair(
+                        FOption<ITEM>() to FOption(tht.head()),
+                        FStream<ITEM>() to tht.tail()
+                    )
+                )
+                is Empty -> FOption()
+            }
+        }
+    }
+fun <ITEM: Any> FStream<ITEM>.startWith(that: FStream<ITEM>): Boolean
+    = zipAll(that)
+        .takeWhile3 { it.second.isEmpty.not() }
+        .forAll { it.first == it.second }
+fun <ITEM: Any> FStream<ITEM>.tails(): FStream<FStream<ITEM>>
+    = unfold(this) { ths: FStream<ITEM> ->
+        if (ths is Cons) FOption(ths to ths.tail()) else FOption()
+    }
 
+// 이건 정말 못풀겠다... GG
+fun <ITEM: Any, OTHER: Any> FStream<ITEM>.scanRight(initResult: OTHER, block: (ITEM, OTHER) -> OTHER): FStream<OTHER>
+    = foldRight({ initResult to FStream(initResult) }) { it, acc ->
+        val acc = acc()
+        val result = block(it, acc.first)
+        result to FStream({ result }, { acc.second })
+    }.second
 class Chapter5_1 {
     @Test
     fun main() {
         val stream: FStream<Int> = FStream<Int>(1, 2, 3, 4)
-        print(stream.foldRight({ 0 }) { it, acc -> acc() + it })
+        println(stream.foldRight({ 0 }) { it, acc -> acc() + it })
+        println(stream.zipAll(FStream(1, 2, 3)).take(3).toList())
+        stream.tails().toList().forEach { println(it.toList()) }
+
         Assert.assertEquals(listOf(1, 2, 3, 4), stream.toList())
         Assert.assertEquals(listOf(1, 2), stream.take(2).toList())
         Assert.assertEquals(listOf(1, 2), stream.takeWhile { it < 3 }.toList())
@@ -167,6 +223,9 @@ class Chapter5_1 {
         Assert.assertEquals(listOf(0, 1, 1, 2, 3, 5, 8), fibs2().take(7).toList())
         Assert.assertEquals(fibs2().take(7).toList(), fibs2().take2(7).toList())
         Assert.assertEquals(listOf(4, 5, 6, 7, 8, 9, 10), from2(4).take(7).toList())
+        Assert.assertEquals(listOf(2, 4, 6), stream.zipWith(FStream(1, 2, 3)) { it1, it2 -> it1 + it2 }.take(3).toList())
+        Assert.assertEquals(true, stream.startWith(FStream(1, 2, 3)))
+        Assert.assertEquals(listOf(10, 9, 7, 4, 0), stream.scanRight(0) { it1, it2 -> it1 + it2 }.toList())
 
     }
 
