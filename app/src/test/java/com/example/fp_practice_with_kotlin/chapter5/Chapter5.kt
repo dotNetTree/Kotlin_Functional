@@ -1,6 +1,5 @@
 package com.example.fp_practice_with_kotlin.chapter5
 
-import com.example.fp_practice_with_kotlin.chapter3.FList
 import com.example.fp_practice_with_kotlin.chapter4.FOption
 import com.example.fp_practice_with_kotlin.chapter4.FOption.*
 import com.example.fp_practice_with_kotlin.chapter4.getOfElse
@@ -52,16 +51,18 @@ val <VALUE: Any> FStream<VALUE>.headOption: FOption<VALUE> get() =
         is Cons -> Some(head())
     }
 
-tailrec fun <ITEM:Any, ACC:Any> FStream<ITEM>._foldRight(base: () -> ACC, origin:(ITEM, () -> ACC) -> ACC, block: (() -> ACC) -> ACC): ACC
+tailrec fun <ITEM:Any, ACC:Any> FStream<ITEM>._foldRight(empty: () -> ACC, cons: (ITEM, () -> ACC) -> ACC, block: (() -> ACC) -> ACC): ACC
        = when (this) {
            is Cons -> when(tail()) {
-               is Cons -> tail()._foldRight(base, origin) { acc -> block({ origin(head(), acc) }) }
-               is Empty -> block({ origin(head(), base) })
+               is Cons -> tail()._foldRight(empty, cons) { acc -> block({ cons(head(), acc) }) }
+               is Empty -> block({ cons(head(), empty) })
            }
-            is Empty -> base()
+            is Empty -> empty()
        }
-fun <ITEM: Any, ACC: Any> FStream<ITEM>.foldRight(base: () -> ACC, origin: (ITEM, () -> ACC) -> ACC): ACC
-    = _foldRight(base, origin) { it() }
+fun <ITEM: Any, ACC: Any> FStream<ITEM>.foldRight(empty: () -> ACC, cons: (ITEM, () -> ACC) -> ACC): ACC
+    = _foldRight(empty, cons) { it() }
+fun <ITEM: Any, ACC: Any> FStream<ITEM>.foldRight2(empty: () -> ACC, cons: (ITEM, () -> ACC) -> ACC): ACC
+    = if (this is Cons) cons(head(), { tail().foldRight(empty, cons)}) else empty() // Cons면 cons Empty면 empty
 
 fun <ITEM: Any, ACCU: Any> FStream<ITEM>.fold(base: () -> ACCU, block: (() -> ACCU, ITEM) -> ACCU): ACCU
         = when (this) {
@@ -75,9 +76,9 @@ fun <ITEM: Any> FStream<ITEM>.toList(): List<ITEM>
     = fold({ listOf() }) { acc, it -> acc() + it }
 // ✏️[연습문제 5.2]
 fun <ITEM: Any> FStream<ITEM>.take(n: Int): FStream<ITEM>
-    =  if (n > 0 && this is Cons) {  FStream(head, { tail().take(n - 1) }) } else { Empty }
+    = if (n > 0 && this is Cons) FStream(head, { tail().take(n - 1) }) else FStream()
 fun <ITEM: Any> FStream<ITEM>.dropFirst(n: Int): FStream<ITEM>
-        =  if (n > 0 && this is Cons) {  tail().dropFirst(n - 1) } else { this }
+    = if (n > 0 && this is Cons) tail().dropFirst(n - 1) else this
 fun <ITEM: Any> FStream<ITEM>.dropLastOne(): FStream<ITEM>
      = when (this) {
         is Empty -> this
@@ -87,7 +88,7 @@ fun <ITEM: Any> FStream<ITEM>.dropLast(n: Int): FStream<ITEM>
     = if (n > 0) dropLastOne().dropLast(n - 1) else this
 // ✏️[연습문제 5.3]
 fun <ITEM: Any> FStream<ITEM>.takeWhile(block: (ITEM) -> Boolean): FStream<ITEM>
-    = if (this is Cons && block(head())) { FStream(head, { tail().takeWhile(block) }) } else { Empty }
+    = if (this is Cons && block(head())) FStream(head, { tail().takeWhile(block) }) else FStream()
 // ✏️[연습문제 5.4]
 fun <ITEM: Any> FStream<ITEM>.forAll(block: (ITEM) -> Boolean): Boolean
     = foldRight({ true }) { it, acc -> acc() && block(it) }
