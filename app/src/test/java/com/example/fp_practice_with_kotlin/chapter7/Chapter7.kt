@@ -1,3 +1,4 @@
+import com.example.fp_practice_with_kotlin.chapter6.unit
 import org.junit.Assert
 import org.junit.Test
 import java.util.concurrent.Callable
@@ -57,6 +58,9 @@ fun <VALUE: Any, OTHER: Any, TO: Any> Par<VALUE>.combine(
     val rf: Future<OTHER> = other(es)
     UnitFuture(block(lf.get(), rf.get()))
 }
+
+fun <VALUE: Any, TO: Any> Par<VALUE>.map(block: (VALUE) -> TO): Par<TO>
+    = combine(Pars.unit(Unit)) { a, _ -> block(a) }
 
 fun <VALUE: Any> Par<VALUE>.run(es: ExecutorService): VALUE = this(es).get()
 
@@ -126,12 +130,56 @@ fun sum2(es: ExecutorService, ints: List<Int>): Int =
         val sumR: Par<Int> = Pars.fork { Pars.unit(sum(r)) }
         sumL.combine(sumR) { l, r -> l + r }.run(es)
     }
+
+fun sortPar(parList: Par<List<Int>>): Par<List<Int>>
+    = parList.map { it.sorted() }
+
+fun <A: Any, B: Any> parMap(
+    ps: List<A>,
+    f: (A) -> B
+): Par<List<B>> {
+    val fbs: List<Par<B>> = ps.map { Pars.asyncF(f)(it) }
+    return sequence(fbs)
+}
+
+// 연습문제 7.6
+fun <A: Any> parFilter(
+    sa: List<A>,
+    f: (A) -> Boolean
+): Par<List<A>> {
+    val pars: List<Par<A>> = sa.map { Pars.lazyUnit { it } }
+    return sequence(pars).map { la: List<A> ->
+        la.flatMap { a -> if (f(a)) listOf(a) else emptyList() }
+    }
+}
+
+// 연습문제 7.5
+val <T> List<T>.head: T get() = first()
+val <T> List<T>.tail: List<T> get() = drop(1)
+val Nil = listOf<Nothing>()
+fun <A: Any> sequence(ps: List<Par<A>>): Par<List<A>> =
+    when {
+        ps.isEmpty() -> Pars.unit(Nil)
+        ps.size == 1 -> ps.head.map { listOf(it) }
+        else -> {
+            val (l, r) = ps.splitAt(ps.size / 2)
+            sequence(l).combine(sequence(r)) { la, lb ->
+                la + lb
+            }
+        }
+    }
+
 class Chapter7_1 {
     @Test
     fun main() {
         val es: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
         val sum = sum2(es, listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
         println(sum)
+        val sorted = sortPar(Pars.unit(listOf(10, 9, 8, 7, 6, 5, 4, 3, 2, 1))).run(es)
+        println(sorted)
+        val filtered = parFilter(listOf(10, 9, 8, 7, 6, 5, 4, 3, 2, 1)) { it % 2 == 0 }.run(es)
+        println(filtered)
+
         es.shutdown()
     }
 
